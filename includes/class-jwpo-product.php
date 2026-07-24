@@ -31,6 +31,84 @@ class JWPO_Product {
 		add_filter( 'woocommerce_product_add_to_cart_text', array( __CLASS__, 'add_to_cart_text' ), 10, 2 );
 		add_filter( 'woocommerce_product_single_add_to_cart_text', array( __CLASS__, 'add_to_cart_text' ), 10, 2 );
 		add_action( 'woocommerce_single_product_summary', array( __CLASS__, 'render_availability_notice' ), 11 );
+		add_filter( 'the_title', array( __CLASS__, 'maybe_append_preorder_badge_to_title' ), 10, 2 );
+		add_action( 'wp_enqueue_scripts', array( __CLASS__, 'enqueue_frontend_assets' ) );
+	}
+
+	/**
+	 * @return void
+	 */
+	public static function enqueue_frontend_assets() {
+		if ( ! is_product() ) {
+			return;
+		}
+
+		wp_enqueue_style( 'jwpo-frontend', JWPO_URL . 'assets/css/frontend.css', array(), JWPO_VERSION );
+	}
+
+	/**
+	 * Short inline badge text used next to a product name/price when that
+	 * specific product is currently in pre-order mode.
+	 *
+	 * @return string
+	 */
+	public static function get_badge_text() {
+		return apply_filters( 'jwpo_preorder_badge_text', __( 'Pre-order', 'jezpress-woo-pre-order' ) );
+	}
+
+	/**
+	 * Build the "Pre-order ⓘ" badge markup for a product — the info icon
+	 * carries a title attribute with the release-date availability text
+	 * (e.g. "Available on 25 December 2026") shown on hover, and is only
+	 * included when there's an actual date/text to show.
+	 *
+	 * @param WC_Product|int $product
+	 * @return string
+	 */
+	public static function get_badge_html( $product ) {
+		$product = self::resolve_product( $product );
+
+		if ( ! $product ) {
+			return '';
+		}
+
+		$tooltip = self::get_availability_text( $product );
+		$icon    = '';
+
+		if ( '' !== $tooltip ) {
+			$icon = ' <span class="jwpo-preorder-info" title="' . esc_attr( $tooltip ) . '">&#9432;</span>';
+		}
+
+		return esc_html( self::get_badge_text() ) . $icon;
+	}
+
+	/**
+	 * Appends the pre-order badge right after the product title on a single
+	 * product page — only when that specific product (plain product or a
+	 * Pack Builder pack's own base product) has pre-order enabled and active.
+	 *
+	 * Scoped tightly to the single product's own main-loop title so it never
+	 * touches admin lists, menus, widgets, or other posts/products rendered
+	 * on the same page (e.g. related products).
+	 *
+	 * @param string $title
+	 * @param int    $post_id
+	 * @return string
+	 */
+	public static function maybe_append_preorder_badge_to_title( $title, $post_id ) {
+		if ( is_admin() || ! is_singular( 'product' ) || ! in_the_loop() || ! is_main_query() ) {
+			return $title;
+		}
+
+		if ( (int) $post_id !== get_the_ID() ) {
+			return $title;
+		}
+
+		if ( ! self::is_preorder_active( $post_id ) ) {
+			return $title;
+		}
+
+		return $title . ' <span class="jwpo-preorder-badge">' . self::get_badge_html( $post_id ) . '</span>';
 	}
 
 	// -------------------------------------------------------------------------

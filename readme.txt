@@ -5,7 +5,7 @@ Requires at least: 5.8
 Tested up to: 6.7
 Requires PHP: 7.4
 WC requires at least: 6.0
-Stable tag: 1.0.0
+Stable tag: 1.1.0
 License: Proprietary
 
 Pre-order support for WooCommerce — hold orders until a product's release date, with bundle-aware status for Pack Builder boxes.
@@ -28,6 +28,11 @@ Requires WooCommerce to be active. Optional integration with JezPress Woo Pack B
 bundle-aware pre-order status.
 
 == Changelog ==
+
+= 1.1.0 =
+* Added a "Pre-order" badge next to the product title on the single product page, shown only when that specific product has pre-order enabled and active.
+* Pack Builder custom-pack addon options now show the same badge next to their price when that addon's product is in pre-order.
+* Badge includes an info icon with a hover tooltip showing the release-date availability text.
 
 = 1.0.0 =
 * Initial scaffolding — license/updater, admin shell, settings.
