@@ -1,5 +1,13 @@
 .jwpo-preorder-info {
 	margin-left: 6px;
+	background: #dddddd;
+	height: 18px;
+	width: 18px;
+	display: inline-block;
+	text-align: center;
+	line-height: 18px;
+	border-radius: 30px;
+	cursor: help;
 }
 
 .jwpo-preorder-badge {

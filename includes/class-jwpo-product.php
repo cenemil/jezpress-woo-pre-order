@@ -76,7 +76,7 @@ class JWPO_Product {
 		$icon    = '';
 
 		if ( '' !== $tooltip ) {
-			$icon = ' <span class="jwpo-preorder-info" title="' . esc_attr( $tooltip ) . '">&#9432;</span>';
+			$icon = ' <span class="jwpo-preorder-info" title="' . esc_attr( $tooltip ) . '">i</span>';
 		}
 
 		return esc_html( self::get_badge_text() ) . $icon;
@@ -275,14 +275,39 @@ class JWPO_Product {
 					'value'       => $product ? $product->get_meta( self::META_ENABLED ) : 'no',
 				) );
 
-				woocommerce_wp_text_input( array(
-					'id'          => '_jwpo_release_date',
-					'label'       => __( 'Release date', 'jezpress-woo-pre-order' ),
-					'description' => __( 'When this passes, the product automatically reverts to normal Add to Cart behaviour. Leave blank for an open-ended pre-order.', 'jezpress-woo-pre-order' ),
-					'desc_tip'    => true,
-					'type'        => 'datetime-local',
-					'value'       => $product ? self::to_datetime_local( $product->get_meta( self::META_RELEASE_DATE ) ) : '',
-				) );
+				// Rendered manually rather than via woocommerce_wp_text_input() so the
+				// help tip sits after the input — WooCommerce places it between the
+				// label and the field, which crowds the wide datetime-local control.
+				$release_date_value = $product ? self::to_datetime_local( $product->get_meta( self::META_RELEASE_DATE ) ) : '';
+
+				// Earliest selectable release date: 1 day ahead of "now" in site time,
+				// rounded up to the next quarter hour so it lines up with the 15 minute
+				// step below (the browser measures steps from the min value).
+				$release_date_min_ts = (int) ceil( ( time() + DAY_IN_SECONDS ) / ( 15 * MINUTE_IN_SECONDS ) ) * ( 15 * MINUTE_IN_SECONDS );
+				$release_date_min    = wp_date( 'Y-m-d\TH:i', $release_date_min_ts );
+
+				// Both constraints are dropped when an already-saved date would fail them,
+				// otherwise HTML5 validation blocks saving unrelated product changes.
+				$release_date_is_legacy = '' !== $release_date_value &&
+					( $release_date_value < $release_date_min || 0 !== ( (int) substr( $release_date_value, 14, 2 ) % 15 ) );
+				?>
+				<p class="form-field _jwpo_release_date_field">
+					<label for="_jwpo_release_date"><?php esc_html_e( 'Release date', 'jezpress-woo-pre-order' ); ?></label>
+					<input
+						type="datetime-local"
+						class="short"
+						style="float: left;"
+						name="_jwpo_release_date"
+						id="_jwpo_release_date"
+						value="<?php echo esc_attr( $release_date_value ); ?>"
+						<?php if ( ! $release_date_is_legacy ) : ?>
+							min="<?php echo esc_attr( $release_date_min ); ?>"
+							step="900"
+						<?php endif; ?>
+					/>
+					<?php echo wc_help_tip( __( 'When this passes, the product automatically reverts to normal Add to Cart behaviour. Leave blank for an open-ended pre-order.', 'jezpress-woo-pre-order' ) ); ?>
+				</p>
+				<?php
 
 				woocommerce_wp_text_input( array(
 					'id'          => '_jwpo_button_text',

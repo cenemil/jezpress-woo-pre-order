@@ -24,6 +24,21 @@ functionally exercised yet — that requires an active license key. Deviations f
 
 Phase 7 (regression/testing checklist) is intentionally left undone per client instruction.
 
+### Post-1.0 additions
+
+- **1.1.0** — "Pre-order" title badge on single product pages, plus the same badge next to Pack
+  Builder custom-pack addon prices.
+- **1.2.0** — Release date field reworked in the product editor: rendered manually so the help tip
+  sits after the input, `min` of now + 1 day rounded up to the next quarter hour, `step="900"` for
+  15 minute intervals, with a legacy-date guard that drops both constraints when an existing saved
+  date would fail them (otherwise HTML5 validation blocks the whole product form). Info icon is now
+  CSS-drawn rather than a Unicode glyph.
+
+The release mechanism — the distinction between the instant, cron-free product-level revert and the
+scheduled order-level `Pre-order → Releasing` transition, and the timezone difference between their
+two storage formats — is documented in this plugin's `CLAUDE.md`, with a customer-facing summary in
+the `readme.txt` FAQ.
+
 ## Naming & Conventions
 
 - Slug: `jezpress-woo-pre-order`
