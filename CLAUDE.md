@@ -37,6 +37,8 @@ Everything that gates on `is_preorder_active()`, all of which stops at release:
 | Add to Cart button text override | `add_to_cart_text()` on `woocommerce_product_add_to_cart_text` (+ `_single_`) |
 | "Available on {date}" notice | `render_availability_notice()` on `woocommerce_single_product_summary` (prio 11) |
 | "Pre-order" title badge | `maybe_append_preorder_badge_to_title()` on `the_title` |
+| Cart/checkout line-item badge (plain product/variation) | `render_cart_item_badge()` on `woocommerce_cart_item_name` |
+| Cart/checkout line-item badge (Pack Builder pack contents) | `JWPO_Bundle_Bridge::render_cart_item_badge()` on `woocommerce_cart_item_name` |
 | Holding new orders in `jwpo-preorder` | `JWPO_Cart::maybe_hold_for_preorder()` |
 | Pack Builder pending-item notice | `JWPO_Bundle_Bridge` |
 
@@ -68,6 +70,15 @@ The two paths store the date differently. Do not copy one convention into the ot
 Pre-order meta only ever lives on the **parent product post**. WooCommerce variations don't get
 their own product-data-tab save, so `JWPO_Bundle_Bridge` reads `$row['product_id']`, never
 `variation_id` — `variation_id` is used only for the display name.
+
+`JWPO_Bundle_Bridge::collect_pending_release()` centralises this "does this pack currently contain
+a not-yet-released pre-order item" check — both `stamp_pack_line_item()` (order-time meta) and
+`render_cart_item_badge()` (cart/checkout badge) call it, over the same row shape
+(`product_id`/`variation_id`/`quantity`) used by both `JWPB_DB::get_pack_items()` and JWPB's own
+`_jwpb_addon_selections` cart item data. The cart badge reads whatever JWPB already stamped onto
+the cart item (`_jwpb_snapshot` for a seasonal pack, `_jwpb_addon_selections` for a custom pack)
+rather than re-deriving contents from `JWPB_DB`, so it reflects what the customer actually has in
+their cart, not the pack's current live configuration.
 
 ## Release date field constraints (product editor)
 
@@ -101,10 +112,12 @@ the REST API, and WP-CLI can still store past or off-interval dates.
 
 ## Assets
 
-`assets/css/frontend.css` is enqueued **only on single product pages** (`is_product()` check in
-`JWPO_Product::enqueue_frontend_assets()`). The badge and the circular info icon are drawn entirely
-in CSS — `.jwpo-preorder-info` renders a plain `i` character inside an 18×18 rounded grey chip, so
-don't reintroduce a Unicode glyph or dashicon.
+`assets/css/frontend.css` is enqueued on single product pages, the cart page, and the checkout page
+(`is_product() || is_cart() || is_checkout()` check in `JWPO_Product::enqueue_frontend_assets()`) —
+the same `.jwpo-preorder-badge` markup is reused for the cart/checkout line-item badge, so it needs
+to be enqueued wherever that markup can appear. The badge and the circular info icon are drawn
+entirely in CSS — `.jwpo-preorder-info` renders a plain `i` character inside an 18×18 rounded grey
+chip, so don't reintroduce a Unicode glyph or dashicon.
 
 `assets/css/admin.css` is enqueued **only on the plugin's own settings page**, not the product edit
 screen — any product-editor styling has to be inline or a new enqueue.

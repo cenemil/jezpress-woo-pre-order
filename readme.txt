@@ -5,7 +5,7 @@ Requires at least: 5.8
 Tested up to: 6.7
 Requires PHP: 7.4
 WC requires at least: 6.0
-Stable tag: 1.2.0
+Stable tag: 1.3.0
 License: Proprietary
 
 Pre-order support for WooCommerce — hold orders until a product's release date, with bundle-aware status for Pack Builder boxes.
@@ -68,6 +68,11 @@ off-interval date before this rule existed keep their stored value and are exemp
 constraint, so their other product settings can still be saved.
 
 == Changelog ==
+
+= 1.3.0 =
+* Added a "Pre-order" badge next to cart and checkout line items when that product (or a selected variation) is currently pre-order active.
+* Pack Builder packs show the same badge when any of their contents — a standard pack's fixed items, or a custom pack's customer-selected addons — is pre-order active, independent of whether the pack's own base product is marked pre-order.
+* frontend.css is now also enqueued on the cart and checkout pages (previously single product pages only) so the badge and info icon render correctly there.
 
 = 1.2.0 =
 * Release date field: help tip now sits after the input, and the field floats in line with the other pre-order fields.

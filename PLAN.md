@@ -33,6 +33,11 @@ Phase 7 (regression/testing checklist) is intentionally left undone per client i
   15 minute intervals, with a legacy-date guard that drops both constraints when an existing saved
   date would fail them (otherwise HTML5 validation blocks the whole product form). Info icon is now
   CSS-drawn rather than a Unicode glyph.
+- **1.3.0** — "Pre-order" badge extended to cart and checkout line items (`woocommerce_cart_item_name`):
+  plain products/variations via `JWPO_Product::render_cart_item_badge()`, and Pack Builder packs via
+  `JWPO_Bundle_Bridge::render_cart_item_badge()`, which covers both standard packs (fixed items) and
+  custom packs (customer-selected addons) — the badge fires off pack *contents*, independent of the
+  pack's own base-product pre-order flag. `frontend.css` is now enqueued on cart/checkout too.
 
 The release mechanism — the distinction between the instant, cron-free product-level revert and the
 scheduled order-level `Pre-order → Releasing` transition, and the timezone difference between their

@@ -32,6 +32,7 @@ class JWPO_Product {
 		add_filter( 'woocommerce_product_single_add_to_cart_text', array( __CLASS__, 'add_to_cart_text' ), 10, 2 );
 		add_action( 'woocommerce_single_product_summary', array( __CLASS__, 'render_availability_notice' ), 11 );
 		add_filter( 'the_title', array( __CLASS__, 'maybe_append_preorder_badge_to_title' ), 10, 2 );
+		add_filter( 'woocommerce_cart_item_name', array( __CLASS__, 'render_cart_item_badge' ), 10, 3 );
 		add_action( 'wp_enqueue_scripts', array( __CLASS__, 'enqueue_frontend_assets' ) );
 	}
 
@@ -39,7 +40,7 @@ class JWPO_Product {
 	 * @return void
 	 */
 	public static function enqueue_frontend_assets() {
-		if ( ! is_product() ) {
+		if ( ! is_product() && ! is_cart() && ! is_checkout() ) {
 			return;
 		}
 
@@ -72,8 +73,19 @@ class JWPO_Product {
 			return '';
 		}
 
-		$tooltip = self::get_availability_text( $product );
-		$icon    = '';
+		return self::build_badge_html( self::get_availability_text( $product ) );
+	}
+
+	/**
+	 * Builds the "Pre-order ⓘ" badge markup from an already-resolved tooltip
+	 * string, for callers (e.g. JWPO_Bundle_Bridge) that need a badge whose
+	 * tooltip isn't tied to a single product's own availability text.
+	 *
+	 * @param string $tooltip
+	 * @return string
+	 */
+	public static function build_badge_html( $tooltip ) {
+		$icon = '';
 
 		if ( '' !== $tooltip ) {
 			$icon = ' <span class="jwpo-preorder-info" title="' . esc_attr( $tooltip ) . '">i</span>';
@@ -423,5 +435,45 @@ class JWPO_Product {
 		}
 
 		echo '<p class="jwpo-availability-notice">' . esc_html( $text ) . '</p>';
+	}
+
+	/**
+	 * Adds a "Pre-order" badge next to a cart/checkout line item's name when
+	 * that item's own product — or, for a variation, its parent post, since
+	 * pre-order meta only ever lives there — is currently pre-order active.
+	 *
+	 * Restricted to the cart and checkout pages themselves: this filter also
+	 * fires in the mini-cart widget, which can render on any page and isn't
+	 * part of this indicator's scope.
+	 *
+	 * A Pack Builder pack's own product can independently carry pre-order
+	 * meta (see maybe_append_preorder_badge_to_title()); pre-order state
+	 * coming from a pack's *contents* is handled separately by
+	 * JWPO_Bundle_Bridge, so both badges can appear on the same line if both
+	 * apply.
+	 *
+	 * @param string $name
+	 * @param array  $cart_item
+	 * @param string $cart_item_key
+	 * @return string
+	 */
+	public static function render_cart_item_badge( $name, $cart_item, $cart_item_key ) {
+		if ( ! is_cart() && ! is_checkout() ) {
+			return $name;
+		}
+
+		$product = isset( $cart_item['data'] ) ? $cart_item['data'] : null;
+
+		if ( ! $product instanceof WC_Product ) {
+			return $name;
+		}
+
+		$parent_id = $product->is_type( 'variation' ) ? $product->get_parent_id() : $product->get_id();
+
+		if ( ! self::is_preorder_active( $parent_id ) ) {
+			return $name;
+		}
+
+		return $name . ' <span class="jwpo-preorder-badge">' . self::get_badge_html( $parent_id ) . '</span>';
 	}
 }
