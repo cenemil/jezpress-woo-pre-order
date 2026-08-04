@@ -133,7 +133,7 @@ class JWPO_Bundle_Bridge {
 
 		$tooltip = self::build_release_tooltip( $result['open_ended'], $result['max_ts'] );
 
-		return $name . ' <span class="jwpo-preorder-badge">' . JWPO_Product::build_badge_html( $tooltip ) . '</span>';
+		return $name . ' ' . JWPO_Product::build_badge_html( $tooltip );
 	}
 
 	/**

@@ -58,40 +58,38 @@ class JWPO_Product {
 	}
 
 	/**
-	 * Build the "Pre-order ⓘ" badge markup for a product — the info icon
-	 * carries a title attribute with the release-date availability text
-	 * (e.g. "Available on 25 December 2026") shown on hover, and is only
-	 * included when there's an actual date/text to show.
+	 * Build the "Pre-order" badge markup for a product — carries a title
+	 * attribute with the release-date availability text (e.g. "Available on
+	 * 25 December 2026") shown on hover, only included when there's an
+	 * actual date/text to show.
 	 *
 	 * @param WC_Product|int $product
+	 * @param string         $class CSS class for the badge element.
 	 * @return string
 	 */
-	public static function get_badge_html( $product ) {
+	public static function get_badge_html( $product, $class = 'jwpo-preorder-badge' ) {
 		$product = self::resolve_product( $product );
 
 		if ( ! $product ) {
 			return '';
 		}
 
-		return self::build_badge_html( self::get_availability_text( $product ) );
+		return self::build_badge_html( self::get_availability_text( $product ), $class );
 	}
 
 	/**
-	 * Builds the "Pre-order ⓘ" badge markup from an already-resolved tooltip
+	 * Builds the "Pre-order" badge markup from an already-resolved tooltip
 	 * string, for callers (e.g. JWPO_Bundle_Bridge) that need a badge whose
 	 * tooltip isn't tied to a single product's own availability text.
 	 *
 	 * @param string $tooltip
+	 * @param string $class CSS class for the badge element.
 	 * @return string
 	 */
-	public static function build_badge_html( $tooltip ) {
-		$icon = '';
+	public static function build_badge_html( $tooltip, $class = 'jwpo-preorder-badge' ) {
+		$title = '' !== $tooltip ? ' title="' . esc_attr( $tooltip ) . '"' : '';
 
-		if ( '' !== $tooltip ) {
-			$icon = ' <span class="jwpo-preorder-info" title="' . esc_attr( $tooltip ) . '">i</span>';
-		}
-
-		return esc_html( self::get_badge_text() ) . $icon;
+		return '<span class="' . esc_attr( $class ) . '"' . $title . '>' . esc_html( self::get_badge_text() ) . '</span>';
 	}
 
 	/**
@@ -120,7 +118,7 @@ class JWPO_Product {
 			return $title;
 		}
 
-		return $title . ' <span class="jwpo-preorder-badge">' . self::get_badge_html( $post_id ) . '</span>';
+		return $title . ' ' . self::get_badge_html( $post_id );
 	}
 
 	// -------------------------------------------------------------------------
@@ -474,6 +472,6 @@ class JWPO_Product {
 			return $name;
 		}
 
-		return $name . ' <span class="jwpo-preorder-badge">' . self::get_badge_html( $parent_id ) . '</span>';
+		return $name . ' ' . self::get_badge_html( $parent_id );
 	}
 }

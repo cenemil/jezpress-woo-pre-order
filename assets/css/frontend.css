@@ -1,18 +1,18 @@
-.jwpo-preorder-info {
-	margin-left: 6px;
-	background: #dddddd;
-	height: 18px;
-	width: 18px;
-	display: inline-block;
-	text-align: center;
-	line-height: 18px;
-	border-radius: 30px;
-	cursor: help;
-}
-
 .jwpo-preorder-badge {
 	padding: 5px 10px;
 	font-size: 14px;
 	background: #eeeeee;
 	vertical-align: middle;
+	position: relative;
+	margin-left: 5px;
+}
+
+.jwpo-preorder-badge:before {
+	content: "";
+	position: absolute;
+	border: 6px solid transparent;
+	border-right: 8px solid #eeeeee;
+	left: -11px;
+	top: 50%;
+	margin-top: -6px;
 }

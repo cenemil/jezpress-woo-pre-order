@@ -5,7 +5,7 @@ Requires at least: 5.8
 Tested up to: 6.7
 Requires PHP: 7.4
 WC requires at least: 6.0
-Stable tag: 1.3.0
+Stable tag: 1.4.0
 License: Proprietary
 
 Pre-order support for WooCommerce — hold orders until a product's release date, with bundle-aware status for Pack Builder boxes.
@@ -68,6 +68,10 @@ off-interval date before this rule existed keep their stored value and are exemp
 constraint, so their other product settings can still be saved.
 
 == Changelog ==
+
+= 1.4.0 =
+* Removed the separate info icon next to the "Pre-order" badge — the release-date availability tooltip is now a `title` attribute on the badge itself.
+* Badge now shows a small triangular arrow pointing back at the title/name it's attached to, on the product title, cart/checkout line items, and Pack Builder addon options alike.
 
 = 1.3.0 =
 * Added a "Pre-order" badge next to cart and checkout line items when that product (or a selected variation) is currently pre-order active.

@@ -115,9 +115,11 @@ the REST API, and WP-CLI can still store past or off-interval dates.
 `assets/css/frontend.css` is enqueued on single product pages, the cart page, and the checkout page
 (`is_product() || is_cart() || is_checkout()` check in `JWPO_Product::enqueue_frontend_assets()`) —
 the same `.jwpo-preorder-badge` markup is reused for the cart/checkout line-item badge, so it needs
-to be enqueued wherever that markup can appear. The badge and the circular info icon are drawn
-entirely in CSS — `.jwpo-preorder-info` renders a plain `i` character inside an 18×18 rounded grey
-chip, so don't reintroduce a Unicode glyph or dashicon.
+to be enqueued wherever that markup can appear. The availability tooltip (release-date text) lives
+on a `title` attribute on the badge element itself — `JWPO_Product::build_badge_html()` /
+`get_badge_html()` render the whole `<span class="...badge" title="...">` (class name is a
+parameter, so Pack Builder's `.jwpb-addon-preorder-badge` reuses the same builder) — there is no
+separate info-icon element anymore.
 
 `assets/css/admin.css` is enqueued **only on the plugin's own settings page**, not the product edit
 screen — any product-editor styling has to be inline or a new enqueue.
