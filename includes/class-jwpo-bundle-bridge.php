@@ -7,18 +7,18 @@
  * of the plugin works fine without it (single-product pre-order only). No
  * changes are needed to Pack Builder itself — all the coupling lives here.
  *
- * Order-holding only supports "standard" packs (fixed items,
- * JWPB_DB::get_pack_items()). Custom packs (customer-selectable addons) are
- * out of scope there — a customer picks addons at cart time, so there's no
- * fixed pre-order state to hold the whole bundle to. The cart/checkout badge
- * (render_cart_item_badge()) is display-only and has no such constraint, so
- * it covers both standard and custom packs.
+ * At checkout, when a pack's contents include a pre-order product, the pack
+ * line item itself is stamped as pre-order (same item meta keys JWPO_Cart uses
+ * for a plain product), so the order-holding path holds the whole order without
+ * needing to know anything about packs — and the pre-order confirmation email
+ * follows from that hold. Per spec, the whole bundle waits for the *last*
+ * contained item to release.
  *
- * At checkout, when a standard pack's contents include a pre-order product,
- * the pack line item itself is stamped as pre-order (same item meta keys
- * JWPO_Cart uses for a plain product), so JWPO_Cart::maybe_hold_for_preorder()
- * holds the whole order without needing to know anything about packs. Per
- * spec, the whole bundle waits for the *last* contained item to release.
+ * Since 1.5.0 this covers **custom** packs (customer-selected addons) as well
+ * as standard ones, reading the contents from the cart item exactly as
+ * render_cart_item_badge() does — see resolve_pack_rows(). Before that, custom
+ * packs were stamped-out entirely, so a pre-ordered addon showed a cart badge
+ * but never held the order and never sent the confirmation email.
  *
  * @package Jezpress_Woo_Pre_Order
  * @since   1.0.0
@@ -38,9 +38,11 @@ class JWPO_Bundle_Bridge {
 			return;
 		}
 
-		// Priority 20 — no ordering dependency on JWPB_Order's own hook,
-		// since pack contents are read from JWPB_DB directly rather than
-		// from order item meta JWPB_Order may or may not have written yet.
+		// Priority 20 — after JWPO_Cart::stamp_line_item() (10), whose meta this
+		// merges with when the pack product is itself flagged pre-order. No
+		// ordering dependency on JWPB_Order's own hook, since pack contents are
+		// read from the cart item / JWPB_DB rather than from order item meta
+		// JWPB_Order may or may not have written yet.
 		add_action( 'woocommerce_checkout_create_order_line_item', array( __CLASS__, 'stamp_pack_line_item' ), 20, 4 );
 		add_filter( 'woocommerce_cart_item_name', array( __CLASS__, 'render_cart_item_badge' ), 10, 3 );
 	}
@@ -55,11 +57,11 @@ class JWPO_Bundle_Bridge {
 	public static function stamp_pack_line_item( $item, $cart_item_key, $values, $order ) {
 		$product = $item->get_product();
 
-		if ( ! $product instanceof WC_Product_Pack || $product->is_custom() ) {
+		if ( ! $product instanceof WC_Product_Pack ) {
 			return;
 		}
 
-		$pack_items = JWPB_DB::get_pack_items( $product->get_id() );
+		$pack_items = self::resolve_pack_rows( $values, $product );
 
 		if ( empty( $pack_items ) ) {
 			return;
@@ -71,16 +73,71 @@ class JWPO_Bundle_Bridge {
 			return;
 		}
 
-		$item->add_meta_data( JWPO_Cart::ITEM_META_IS_PREORDER, 'yes' );
-
 		// Whole bundle waits for the LATEST release date among its pending
 		// items — if any pending item is open-ended, the bundle is too.
-		$item->add_meta_data(
-			JWPO_Cart::ITEM_META_RELEASE_DATE,
-			$result['open_ended'] ? '' : wp_date( 'Y-m-d H:i:s', $result['max_ts'] )
-		);
+		self::apply_preorder_item_meta( $item, $result['open_ended'], $result['max_ts'] );
 
-		$item->add_meta_data( self::ITEM_META_BUNDLE_CONTENTS, wp_json_encode( $result['pending'] ) );
+		$item->update_meta_data( self::ITEM_META_BUNDLE_CONTENTS, wp_json_encode( $result['pending'] ) );
+	}
+
+	/**
+	 * The pack's contents as the customer actually has them in their cart:
+	 * their addon picks for a custom pack, the snapshot taken at add-to-cart
+	 * time for a standard/seasonal one. Same source and precedence as
+	 * JWPB_Order::copy_pack_meta_to_order_item() and render_cart_item_badge(),
+	 * so all three agree on what's in the box.
+	 *
+	 * @param array           $values  Cart item data.
+	 * @param WC_Product_Pack $product
+	 * @return array Rows of product_id / variation_id / quantity.
+	 */
+	private static function resolve_pack_rows( $values, $product ) {
+		if ( $product->is_custom() ) {
+			return isset( $values['_jwpb_addon_selections'] ) ? $values['_jwpb_addon_selections'] : array();
+		}
+
+		if ( isset( $values['_jwpb_snapshot'] ) ) {
+			return $values['_jwpb_snapshot'];
+		}
+
+		return JWPB_DB::get_pack_items( $product->get_id() );
+	}
+
+	/**
+	 * Writes the pre-order item meta onto the pack line item, merging with
+	 * anything JWPO_Cart::stamp_line_item() already stamped at priority 10 —
+	 * which happens when the pack product *itself* is also flagged pre-order.
+	 * Uses update_meta_data() and keeps the later of the two dates, because
+	 * duplicate meta keys would leave JWPO_Cart::get_pending_release_timestamp()
+	 * reading only whichever value happened to be stored first.
+	 *
+	 * @param WC_Order_Item_Product $item
+	 * @param bool                  $open_ended
+	 * @param int                   $max_ts
+	 * @return void
+	 */
+	private static function apply_preorder_item_meta( $item, $open_ended, $max_ts ) {
+		if ( 'yes' === $item->get_meta( JWPO_Cart::ITEM_META_IS_PREORDER ) ) {
+			$existing = $item->get_meta( JWPO_Cart::ITEM_META_RELEASE_DATE );
+
+			if ( '' === $existing ) {
+				$open_ended = true;
+			} else {
+				try {
+					// Item meta is a site-timezone wall-clock value, matching
+					// what JWPO_Product::get_release_date_raw() returns.
+					$max_ts = max( $max_ts, ( new DateTime( $existing, wp_timezone() ) )->getTimestamp() );
+				} catch ( Exception $e ) {
+					$open_ended = true;
+				}
+			}
+		}
+
+		$item->update_meta_data( JWPO_Cart::ITEM_META_IS_PREORDER, 'yes' );
+		$item->update_meta_data(
+			JWPO_Cart::ITEM_META_RELEASE_DATE,
+			$open_ended ? '' : wp_date( 'Y-m-d H:i:s', $max_ts )
+		);
 	}
 
 	/**
@@ -115,11 +172,7 @@ class JWPO_Bundle_Bridge {
 			return $name;
 		}
 
-		if ( $product->is_custom() ) {
-			$items = isset( $cart_item['_jwpb_addon_selections'] ) ? $cart_item['_jwpb_addon_selections'] : array();
-		} else {
-			$items = isset( $cart_item['_jwpb_snapshot'] ) ? $cart_item['_jwpb_snapshot'] : JWPB_DB::get_pack_items( $product->get_id() );
-		}
+		$items = self::resolve_pack_rows( $cart_item, $product );
 
 		if ( empty( $items ) ) {
 			return $name;

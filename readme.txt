@@ -5,7 +5,7 @@ Requires at least: 5.8
 Tested up to: 6.7
 Requires PHP: 7.4
 WC requires at least: 6.0
-Stable tag: 1.4.0
+Stable tag: 1.5.0
 License: Proprietary
 
 Pre-order support for WooCommerce — hold orders until a product's release date, with bundle-aware status for Pack Builder boxes.
@@ -68,6 +68,17 @@ off-interval date before this rule existed keep their stored value and are exemp
 constraint, so their other product settings can still be saved.
 
 == Changelog ==
+
+= 1.5.0 =
+* Fixed: the Pre-order Confirmation and Pre-order Release Notice emails never actually sent. Both are now registered with WooCommerce as email-bearing actions, so WooCommerce loads its mailer for the Pre-order and Releasing transitions the same way it does for core statuses. This also fixes the release notice being skipped entirely when the transition came from the scheduled release check (WP-cron).
+* Orders now land in Pre-order directly on payment instead of passing through Processing or Completed first, so customers no longer receive the standard "Processing" or "Order complete" email immediately before the pre-order confirmation. This holds even for gateways that force a status of their own — Cash on Delivery, for one, marks every order Completed on payment.
+* The shop admin's standard WooCommerce "New order" email is now sent for pre-orders too. WooCommerce only sends it on the transitions into Processing, Completed and On hold, which a pre-order no longer passes through.
+* Fixed: orders that skip Processing — fully virtual or downloadable orders, which WooCommerce completes straight away — were never held as pre-orders and so never triggered the confirmation email. They are now.
+* Fixed: a pre-ordered variable product bought as a variation was never held as a pre-order and never triggered the confirmation email — it showed the cart badge but the order went through as normal. Variations now resolve to their parent product, where the pre-order settings live.
+* Custom Pack Builder packs (customer-selected addons) now hold the order and send the pre-order confirmation when a selected addon is pre-order active. Previously only standard packs did this, so a pre-ordered addon showed a cart badge but the order was never held.
+* A pack line item whose own base product is also marked pre-order now stores a single release date — the later of the pack's own date and its contents' — instead of two conflicting values.
+* An order is only ever held once, so an admin who deliberately moves a held order to Processing or Completed before its release date no longer sees it bounce back to Pre-order.
+* Setting an order to Pre-order by hand in the admin now records the expected release date and order note, and sends the confirmation email, just like the automatic path.
 
 = 1.4.0 =
 * Removed the separate info icon next to the "Pre-order" badge — the release-date availability tooltip is now a `title` attribute on the badge itself.

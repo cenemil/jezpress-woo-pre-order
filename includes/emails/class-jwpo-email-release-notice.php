@@ -28,7 +28,10 @@ class JWPO_Email_Release_Notice extends WC_Email {
 			'{order_number}' => '',
 		);
 
-		add_action( 'woocommerce_order_status_jwpo-releasing', array( $this, 'trigger' ), 10, 2 );
+		// The "_notification" variant, as core WC emails use — fired by
+		// WC_Emails::send_transactional_email() once the mailer is loaded.
+		// See JWPO_Emails for why the raw status action can't be used here.
+		add_action( 'woocommerce_order_status_jwpo-releasing_notification', array( $this, 'trigger' ), 10, 2 );
 
 		parent::__construct();
 	}
