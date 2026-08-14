@@ -5,7 +5,7 @@ Requires at least: 5.8
 Tested up to: 6.7
 Requires PHP: 7.4
 WC requires at least: 6.0
-Stable tag: 1.5.0
+Stable tag: 1.6.0
 License: Proprietary
 
 Pre-order support for WooCommerce — hold orders until a product's release date, with bundle-aware status for Pack Builder boxes.
@@ -68,6 +68,9 @@ off-interval date before this rule existed keep their stored value and are exemp
 constraint, so their other product settings can still be saved.
 
 == Changelog ==
+
+= 1.6.0 =
+* Maintenance release — no functional changes. Internal developer documentation only: recorded the plugin's Git layout (each plugin is its own repository) so routine git commands can't be run from the wrong directory.
 
 = 1.5.0 =
 * Fixed: the Pre-order Confirmation and Pre-order Release Notice emails never actually sent. Both are now registered with WooCommerce as email-bearing actions, so WooCommerce loads its mailer for the Pre-order and Releasing transitions the same way it does for core statuses. This also fixes the release notice being skipped entirely when the transition came from the scheduled release check (WP-cron).

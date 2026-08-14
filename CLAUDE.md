@@ -9,6 +9,16 @@ repo-wide conventions (updater/license patterns, release process, coding standar
 - **Requires:** WordPress 5.8+, WooCommerce 6.0+, PHP 7.4+
 - **License-gated:** yes — everything past `JWPO_Settings` / `JWPO_Admin` only loads when the
   license is valid (see `jezpress-woo-pre-order.php:79`).
+- **Git:** this plugin directory is its own repo — `origin` is
+  `https://github.com/cenemil/jezpress-woo-pre-order.git`, default branch `master` (not `main`).
+
+## Git — always run git from inside this directory
+
+The parent `wp-content/plugins/` directory is **not** a repository, and neither is anything above it
+until `/Users/cenemiljonessumbalan`. A git command run from `plugins/` therefore walks up and
+silently attaches to the repo in the **home directory** (`origin` = `cenemil/xerophpapp.git`),
+reporting all of `~` as untracked — `git add`/`git commit` from there can commit unrelated personal
+files to the wrong remote. `cd` into this plugin directory first, every time.
 
 ## The release mechanism (read this before touching release logic)
 
@@ -211,6 +221,14 @@ changelog in `readme.txt`, then:
 zip -r jezpress-woo-pre-order.zip jezpress-woo-pre-order -x "*.git*" -x "*CLAUDE.md" -x "*PLAN.md"
 jezpress plugins preflight jezpress-woo-pre-order ./jezpress-woo-pre-order.zip
 jezpress plugins upload jezpress-woo-pre-order ./jezpress-woo-pre-order.zip
+```
+
+Those three commands run from the parent `plugins/` directory — that's fine for `zip`/`jezpress`,
+but do **not** run git there (see the Git section above). Commit, tag and push from inside this
+directory:
+
+```bash
+git push origin master
 ```
 
 Notify the team via the Jezweb dev Google Chat space.
