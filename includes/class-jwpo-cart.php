@@ -48,6 +48,53 @@ class JWPO_Cart {
 		// 5 so the release date exists before the confirmation email (which
 		// runs off the same action at priority 10) renders it.
 		add_action( 'woocommerce_order_status_jwpo-preorder', array( __CLASS__, 'stamp_hold_meta' ), 5, 2 );
+
+		// "(Pre-order)" after the line item name wherever an order is rendered:
+		// both emails, the thank-you page, My Account, and the admin order screen.
+		add_filter( 'woocommerce_order_item_name', array( __CLASS__, 'append_order_item_label' ), 10, 2 );
+	}
+
+	/**
+	 * The "(Pre-order)" suffix used on order line items and, via
+	 * JWPO_Bundle_Bridge, on individual Pack Builder pack contents.
+	 *
+	 * @param bool $html Whether the return value lands in HTML output.
+	 * @return string
+	 */
+	public static function preorder_label( $html = true ) {
+		$text = sprintf( '(%s)', JWPO_Product::get_badge_text() );
+
+		return $html ? esc_html( $text ) : $text;
+	}
+
+	/**
+	 * Append "(Pre-order)" to a pre-order line item's name in order output.
+	 *
+	 * Reads the item meta stamped at checkout rather than asking
+	 * JWPO_Product::is_preorder_active() — that's a live check against the
+	 * product's current release date, so once the date passed it would answer
+	 * "no" and the label would vanish from the order the customer already
+	 * placed. The stamped meta is the order-time snapshot, so the pre-order
+	 * confirmation and the release notice describe the same order.
+	 *
+	 * Covers plain products, variations and Pack Builder packs alike: a pack
+	 * carries this meta whenever any of its contents was pending release, from
+	 * JWPO_Bundle_Bridge::apply_preorder_item_meta().
+	 *
+	 * @param string        $name
+	 * @param WC_Order_Item $item
+	 * @return string
+	 */
+	public static function append_order_item_label( $name, $item ) {
+		if ( ! $item instanceof WC_Order_Item_Product ) {
+			return $name;
+		}
+
+		if ( 'yes' !== $item->get_meta( self::ITEM_META_IS_PREORDER ) ) {
+			return $name;
+		}
+
+		return $name . ' ' . self::preorder_label();
 	}
 
 	/**

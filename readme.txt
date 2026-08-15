@@ -5,7 +5,7 @@ Requires at least: 5.8
 Tested up to: 6.7
 Requires PHP: 7.4
 WC requires at least: 6.0
-Stable tag: 1.6.0
+Stable tag: 1.6.1
 License: Proprietary
 
 Pre-order support for WooCommerce — hold orders until a product's release date, with bundle-aware status for Pack Builder boxes.
@@ -68,6 +68,11 @@ off-interval date before this rule existed keep their stored value and are exemp
 constraint, so their other product settings can still be saved.
 
 == Changelog ==
+
+= 1.6.1 =
+* Order line items for pre-ordered products now read "Product name (Pre-order)" everywhere an order is rendered — the pre-order confirmation and release notice emails, the thank-you page, My Account, and the admin order screen
+* Inside a Pack Builder pack's contents list, the specific items still awaiting release are marked "(Pre-order)" individually, so a customer can tell which part of the box is holding the order up rather than only seeing the pack labelled as a whole (requires Pack Builder 1.3.3+)
+* Both labels read the pre-order state stamped on the order at checkout rather than the product's current release date, so an order's emails stay consistent with each other once the release date passes
 
 = 1.6.0 =
 * Maintenance release — no functional changes. Internal developer documentation only: recorded the plugin's Git layout (each plugin is its own repository) so routine git commands can't be run from the wrong directory.

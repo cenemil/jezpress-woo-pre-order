@@ -189,6 +189,34 @@ touch the date. Do not remove this guard.
 **Both constraints are client-side only.** `save_meta()` accepts whatever is posted, so imports,
 the REST API, and WP-CLI can still store past or off-interval dates.
 
+## Order-output labelling — snapshot, never a live check
+
+Two places append a plain `(Pre-order)` suffix (`JWPO_Cart::preorder_label()`, built from
+`JWPO_Product::get_badge_text()` so it follows the `jwpo_preorder_badge_text` filter):
+
+| What | Where |
+|---|---|
+| The line item name | `JWPO_Cart::append_order_item_label()` on `woocommerce_order_item_name` |
+| One line of a pack's contents list | `JWPO_Bundle_Bridge::append_content_line_label()` on JWPB's `jwpb_order_item_content_line` |
+
+Both read the **order-time snapshot** in item meta — `ITEM_META_IS_PREORDER` and
+`ITEM_META_BUNDLE_CONTENTS` — never `JWPO_Product::is_preorder_active()`. That's deliberate and the
+whole point: `is_preorder_active()` answers against the product's *current* release date, so once
+the date passed the label would silently vanish from an order the customer already placed, and the
+release notice would describe a different order than the confirmation did.
+
+The one live-check fallback is for orders predating `ITEM_META_BUNDLE_CONTENTS`, and it's reached
+only after confirming the item carries `ITEM_META_IS_PREORDER`. Without that guard it would start
+labelling the contents of long-settled orders the moment someone flagged one of their products
+pre-order.
+
+Note the badge and the label are separate mechanisms: the cart/checkout **badge** is HTML
+(`build_badge_html()`, with the release-date tooltip); order output uses this **plain-text suffix**,
+because it has to survive the plain-text email as well as HTML.
+
+`woocommerce_order_item_name` also fires in `WC_Structured_Data`, so the suffix reaches an order's
+schema.org payload. Harmless, but it's why the suffix is kept plain and short.
+
 ## Known rough edges
 
 - **Release *time* is never displayed.** `get_availability_text()` formats with

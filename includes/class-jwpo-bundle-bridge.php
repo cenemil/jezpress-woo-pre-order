@@ -45,6 +45,72 @@ class JWPO_Bundle_Bridge {
 		// JWPB_Order may or may not have written yet.
 		add_action( 'woocommerce_checkout_create_order_line_item', array( __CLASS__, 'stamp_pack_line_item' ), 20, 4 );
 		add_filter( 'woocommerce_cart_item_name', array( __CLASS__, 'render_cart_item_badge' ), 10, 3 );
+
+		// Label the individual pending items inside a pack's contents list.
+		// No-ops harmlessly on Pack Builder < 1.3.3, which has no such filter.
+		add_filter( 'jwpb_order_item_content_line', array( __CLASS__, 'append_content_line_label' ), 10, 4 );
+	}
+
+	/**
+	 * Append "(Pre-order)" to a single pack contents line when that item was
+	 * awaiting release at the time the order was placed.
+	 *
+	 * The pack line item as a whole already gets the suffix from
+	 * JWPO_Cart::append_order_item_label(), but a pack usually mixes released
+	 * and pending items, so the customer still can't tell *which* part of the
+	 * box is holding the order up. This labels the specific items.
+	 *
+	 * Uses ITEM_META_BUNDLE_CONTENTS — the order-time snapshot of exactly which
+	 * contents were pending, written by stamp_pack_line_item(). Falls back to a
+	 * live is_preorder_active() check only for orders placed before that meta
+	 * existed; that fallback answers against the product's *current* release
+	 * date, so it stops labelling once the date passes.
+	 *
+	 * Pack Builder's contents entries key the display product as
+	 * variation_id ?: product_id, matching how collect_pending_release() keys
+	 * the pending map.
+	 *
+	 * @param string                $line Formatted contents line.
+	 * @param array                 $c    Contents entry (product_id, variation_id, ...).
+	 * @param WC_Order_Item_Product $item Order item.
+	 * @param bool                  $html Whether $line is HTML or plain text.
+	 * @return string
+	 */
+	public static function append_content_line_label( $line, $c, $item, $html = true ) {
+		if ( ! $item instanceof WC_Order_Item_Product || ! is_array( $c ) ) {
+			return $line;
+		}
+
+		$product_id   = isset( $c['product_id'] ) ? (int) $c['product_id'] : 0;
+		$variation_id = isset( $c['variation_id'] ) ? (int) $c['variation_id'] : 0;
+
+		if ( ! $product_id ) {
+			return $line;
+		}
+
+		// Nothing in this pack was pending release when the order was placed, so
+		// no line can be labelled. Checked before the live-product fallback
+		// below, which would otherwise start labelling the contents of a settled
+		// old order the moment someone flagged one of its products pre-order.
+		if ( 'yes' !== $item->get_meta( JWPO_Cart::ITEM_META_IS_PREORDER ) ) {
+			return $line;
+		}
+
+		$raw     = $item->get_meta( self::ITEM_META_BUNDLE_CONTENTS );
+		$pending = $raw ? json_decode( $raw, true ) : null;
+
+		if ( is_array( $pending ) ) {
+			$display_id = $variation_id ? $variation_id : $product_id;
+
+			if ( ! isset( $pending[ $display_id ] ) && ! isset( $pending[ (string) $display_id ] ) ) {
+				return $line;
+			}
+		} elseif ( ! JWPO_Product::is_preorder_active( $product_id ) ) {
+			// Pre-1.6.1 order with no pending snapshot to consult.
+			return $line;
+		}
+
+		return $line . ' ' . JWPO_Cart::preorder_label( $html );
 	}
 
 	/**
