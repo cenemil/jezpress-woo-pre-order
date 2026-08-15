@@ -21,7 +21,13 @@ echo esc_html( wp_strip_all_tags( $email_heading ) ) . "\n\n";
 echo esc_html( sprintf( __( 'Good news — the pre-ordered item(s) in your order #%s have been released and your order is now being prepared for dispatch.', 'jezpress-woo-pre-order' ), $order->get_order_number() ) ) . "\n\n";
 
 if ( $additional_content ) {
-	echo esc_html( wp_strip_all_tags( wptexturize( $additional_content ) ) ) . "\n\n";
+	// wptexturize() emits curly quotes as *numeric HTML entities*, so a plain-text
+	// email printed them literally ("You&#8217;ll receive..."). Decoding afterwards
+	// restores the real UTF-8 character; the equivalent core WC plain template has
+	// the same flaw, and esc_html() is dropped because re-escaping here would
+	// simply re-encode what was just decoded. wp_strip_all_tags() has already
+	// removed any markup, and there is no HTML context to escape into.
+	echo html_entity_decode( wp_strip_all_tags( wptexturize( $additional_content ) ), ENT_QUOTES, 'UTF-8' ) . "\n\n"; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
 }
 
 echo "----------\n\n";

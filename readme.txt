@@ -5,7 +5,7 @@ Requires at least: 5.8
 Tested up to: 6.7
 Requires PHP: 7.4
 WC requires at least: 6.0
-Stable tag: 1.6.1
+Stable tag: 1.6.2
 License: Proprietary
 
 Pre-order support for WooCommerce — hold orders until a product's release date, with bundle-aware status for Pack Builder boxes.
@@ -68,6 +68,12 @@ off-interval date before this rule existed keep their stored value and are exemp
 constraint, so their other product settings can still be saved.
 
 == Changelog ==
+
+= 1.6.2 =
+* Pre-order confirmation email: removed the closing line above the order summary, which repeated the "we will email you again as soon as your order is ready to ship" sentence already in the release paragraph
+* Release notice email: the closing line no longer repeats "your order is now being prepared for dispatch" from the paragraph above it, and now reads only "You'll receive a separate shipping notification once it's on its way"
+* Both lines are the emails' default additional content, so a site that had saved its own wording on the WooCommerce → Settings → Emails screen keeps it — only a stored copy of the exact old default is cleared
+* Fixed apostrophes and quotes in that closing line printing as raw HTML entities in the plain-text version of both emails ("You&#8217;ll receive..." instead of "You'll receive...")
 
 = 1.6.1 =
 * Order line items for pre-ordered products now read "Product name (Pre-order)" everywhere an order is rendered — the pre-order confirmation and release notice emails, the thank-you page, My Account, and the admin order screen

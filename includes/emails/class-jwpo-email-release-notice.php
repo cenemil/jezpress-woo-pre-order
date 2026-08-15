@@ -115,9 +115,13 @@ class JWPO_Email_Release_Notice extends WC_Email {
 	}
 
 	/**
+	 * The opening clause used to be "Your order is now being prepared for
+	 * dispatch", repeating how the body paragraph above already ends. Only the
+	 * shipping-notification half says anything new, so that's all that's left.
+	 *
 	 * @return string
 	 */
 	public function get_default_additional_content() {
-		return __( 'Your order is now being prepared for dispatch — you\'ll receive a separate shipping notification once it\'s on its way.', 'jezpress-woo-pre-order' );
+		return __( 'You\'ll receive a separate shipping notification once it\'s on its way.', 'jezpress-woo-pre-order' );
 	}
 }

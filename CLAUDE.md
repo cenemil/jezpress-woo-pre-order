@@ -189,6 +189,33 @@ touch the date. Do not remove this guard.
 **Both constraints are client-side only.** `save_meta()` accepts whatever is posted, so imports,
 the REST API, and WP-CLI can still store past or off-interval dates.
 
+### Email body copy lives in two places
+
+Each email's wording is split between its template (`templates/emails/…`, one per email × HTML/plain)
+and its `WC_Email::get_default_additional_content()` — the paragraph WooCommerce renders last, just
+above the order summary. It's easy to edit one and leave the other saying the same thing twice;
+that's exactly what 1.6.2 cleaned up.
+
+`get_default_additional_content()` is only a **fallback**. `WC_Settings_API::get_option()` prefers
+the saved settings array, and WooCommerce writes every field of it — untouched ones included — the
+first time an admin saves that email's settings screen. So on any site where those screens were
+ever saved, changing the default alone is invisible. `JWPO_Emails::maybe_migrate_additional_content()`
+is the one-shot cleanup for that: it unsets `additional_content` (handing control back to the
+default) only when the stored value is an **exact** match for a superseded default, so admin-written
+copy survives. It compares against the English literal, so a translated site keeps its stored text —
+failing safe rather than clobbering.
+
+In the **plain-text** templates, additional content is `html_entity_decode()`d after
+`wptexturize()`. `wptexturize()` emits curly quotes as numeric HTML entities, so without the decode
+a plain-text email prints `You&#8217;ll receive...` literally. `esc_html()` is deliberately absent
+there — it would simply re-encode what was just decoded — and core WC's own plain templates carry
+the same flaw, so don't "fix" ours back to match them.
+
+Its guard is presence-only, so **the migration runs exactly once per site, ever** — a site already
+carrying `jwpo_additional_content_migrated` skips it. Retiring another default sentence later
+therefore needs a new option key (or a version-compare against the stored `JWPO_VERSION`); adding a
+row to `$superseded` on its own would do nothing on existing installs.
+
 ## Order-output labelling — snapshot, never a live check
 
 Two places append a plain `(Pre-order)` suffix (`JWPO_Cart::preorder_label()`, built from

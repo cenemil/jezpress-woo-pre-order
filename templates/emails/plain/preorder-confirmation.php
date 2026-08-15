@@ -35,7 +35,10 @@ if ( '' !== $release_raw ) {
 }
 
 if ( $additional_content ) {
-	echo esc_html( wp_strip_all_tags( wptexturize( $additional_content ) ) ) . "\n\n";
+	// Decoded, not escaped — see the matching note in plain/release-notice.php:
+	// wptexturize() emits curly quotes as numeric HTML entities, which a plain-text
+	// email would otherwise print literally.
+	echo html_entity_decode( wp_strip_all_tags( wptexturize( $additional_content ) ), ENT_QUOTES, 'UTF-8' ) . "\n\n"; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
 }
 
 echo "----------\n\n";

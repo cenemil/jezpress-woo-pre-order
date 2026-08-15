@@ -115,9 +115,14 @@ class JWPO_Email_Preorder_Confirmation extends WC_Email {
 	}
 
 	/**
+	 * Deliberately empty. The body's release paragraph already ends with "We
+	 * will email you again as soon as your order is ready to ship", so the
+	 * default additional content said the same thing a second time, directly
+	 * above the order summary. Admins can still set their own text here.
+	 *
 	 * @return string
 	 */
 	public function get_default_additional_content() {
-		return __( 'We\'ll send you another email as soon as your order is ready to ship.', 'jezpress-woo-pre-order' );
+		return '';
 	}
 }

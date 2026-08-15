@@ -44,12 +44,63 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 class JWPO_Emails {
 
+	/** One-shot flag for the 1.6.2 additional-content cleanup. */
+	const CONTENT_MIGRATION_OPTION = 'jwpo_additional_content_migrated';
+
 	public static function init() {
 		add_filter( 'woocommerce_email_classes', array( __CLASS__, 'register_emails' ) );
 		add_filter( 'woocommerce_email_actions', array( __CLASS__, 'register_email_actions' ) );
 
 		// Priority 20 — after the customer's pre-order confirmation (10).
 		add_action( 'woocommerce_order_status_jwpo-preorder_notification', array( __CLASS__, 'trigger_admin_new_order' ), 20, 2 );
+
+		self::maybe_migrate_additional_content();
+	}
+
+	/**
+	 * Drop a stored "additional content" email setting that still holds a
+	 * default this plugin has since removed as redundant.
+	 *
+	 * get_default_additional_content() only supplies the fallback:
+	 * WC_Settings_API::get_option() prefers the saved settings array, and
+	 * WooCommerce writes every field of that array the first time an admin
+	 * saves the email's settings screen — even untouched ones. So on any site
+	 * where those screens were ever saved, the superseded sentence is in the
+	 * database and changing the default alone would have no visible effect.
+	 *
+	 * Only an *exact* match on the old default is cleared, so admin-written
+	 * copy is never touched. Unsetting the key rather than blanking it hands
+	 * control back to get_default_additional_content(), which is what should
+	 * govern the wording from here on.
+	 *
+	 * @return void
+	 */
+	private static function maybe_migrate_additional_content() {
+		if ( get_option( self::CONTENT_MIGRATION_OPTION ) ) {
+			return;
+		}
+
+		$superseded = array(
+			'woocommerce_jwpo_preorder_confirmation_settings' => 'We\'ll send you another email as soon as your order is ready to ship.',
+			'woocommerce_jwpo_release_notice_settings'        => 'Your order is now being prepared for dispatch — you\'ll receive a separate shipping notification once it\'s on its way.',
+		);
+
+		foreach ( $superseded as $option_name => $old_default ) {
+			$settings = get_option( $option_name );
+
+			if ( ! is_array( $settings ) || ! isset( $settings['additional_content'] ) ) {
+				continue;
+			}
+
+			if ( trim( $settings['additional_content'] ) !== $old_default ) {
+				continue;
+			}
+
+			unset( $settings['additional_content'] );
+			update_option( $option_name, $settings );
+		}
+
+		update_option( self::CONTENT_MIGRATION_OPTION, JWPO_VERSION );
 	}
 
 	/**
