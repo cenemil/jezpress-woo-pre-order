@@ -5,7 +5,7 @@ Requires at least: 5.8
 Tested up to: 6.7
 Requires PHP: 7.4
 WC requires at least: 6.0
-Stable tag: 1.6.2
+Stable tag: 1.7.0
 License: Proprietary
 
 Pre-order support for WooCommerce — hold orders until a product's release date, with bundle-aware status for Pack Builder boxes.
@@ -68,6 +68,10 @@ off-interval date before this rule existed keep their stored value and are exemp
 constraint, so their other product settings can still be saved.
 
 == Changelog ==
+
+= 1.7.0 =
+* Shop loop/archive thumbnails, related/upsell/cross-sell grids and the single product gallery image now show a "Pre-order" corner badge, in addition to the existing title/cart/checkout badges
+* Added a `[jwpo_preorder_badge]` shortcode for showing the same "Pre-order" badge (with its release-date tooltip) anywhere in post/page content — defaults to the current product on a single product page, or pass `id="123"` for a specific product; renders nothing once that product is no longer pre-order active
 
 = 1.6.2 =
 * Pre-order confirmation email: removed the closing line above the order summary, which repeated the "we will email you again as soon as your order is ready to ship" sentence already in the release paragraph

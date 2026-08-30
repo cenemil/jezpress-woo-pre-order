@@ -12,6 +12,15 @@ repo-wide conventions (updater/license patterns, release process, coding standar
 - **Git:** this plugin directory is its own repo — `origin` is
   `https://github.com/cenemil/jezpress-woo-pre-order.git`, default branch `master` (not `main`).
 
+## Commands
+
+There is no build step, package manager, linter config, or automated test suite in this repo (no
+`composer.json`, `package.json`, `phpunit.xml`, or CI config) — `PLAN.md` notes the regression/testing
+checklist phase was left undone per client instruction. Verification is manual: activate the plugin
+on a Local WP site and exercise the relevant flow (product edit screen, cart/checkout, order status
+transitions, emails). `php -l <file>` is a reasonable quick syntax check before committing. Packaging
+and upload commands are under **Release process** at the bottom of this file.
+
 ## Git — always run git from inside this directory
 
 The parent `wp-content/plugins/` directory is **not** a repository, and neither is anything above it
@@ -49,6 +58,8 @@ Everything that gates on `is_preorder_active()`, all of which stops at release:
 | "Pre-order" title badge | `maybe_append_preorder_badge_to_title()` on `the_title` |
 | Cart/checkout line-item badge (plain product/variation) | `render_cart_item_badge()` on `woocommerce_cart_item_name` |
 | Cart/checkout line-item badge (Pack Builder pack contents) | `JWPO_Bundle_Bridge::render_cart_item_badge()` on `woocommerce_cart_item_name` |
+| Shop loop / archive / related-upsell thumbnail image badge | `add_preorder_badge_to_loop_image()` on `woocommerce_product_get_image` |
+| Single product gallery image badge | `add_preorder_badge_to_gallery_image()` on `woocommerce_single_product_image_thumbnail_html` |
 | Holding new orders in `jwpo-preorder` | `JWPO_Cart::filter_payment_complete_status()` + `maybe_hold_for_preorder()` |
 | Pack Builder pending-item notice | `JWPO_Bundle_Bridge` |
 
@@ -255,14 +266,48 @@ schema.org payload. Harmless, but it's why the suffix is kept plain and short.
 
 ## Assets
 
-`assets/css/frontend.css` is enqueued on single product pages, the cart page, and the checkout page
-(`is_product() || is_cart() || is_checkout()` check in `JWPO_Product::enqueue_frontend_assets()`) —
-the same `.jwpo-preorder-badge` markup is reused for the cart/checkout line-item badge, so it needs
-to be enqueued wherever that markup can appear. The availability tooltip (release-date text) lives
-on a `title` attribute on the badge element itself — `JWPO_Product::build_badge_html()` /
-`get_badge_html()` render the whole `<span class="...badge" title="...">` (class name is a
-parameter, so Pack Builder's `.jwpb-addon-preorder-badge` reuses the same builder) — there is no
-separate info-icon element anymore.
+`assets/css/frontend.css` is enqueued on the shop/archive/single product pages, the cart page, and
+the checkout page (`is_woocommerce() || is_cart() || is_checkout()` check in
+`JWPO_Product::enqueue_frontend_assets()`) — the same `.jwpo-preorder-badge` markup is reused for the
+cart/checkout line-item badge, so it needs to be enqueued wherever that markup can appear. The
+availability tooltip (release-date text) lives on a `title` attribute on the badge element itself —
+`JWPO_Product::build_badge_html()` / `get_badge_html()` render the whole
+`<span class="...badge" title="...">` (class name is a parameter, so Pack Builder's
+`.jwpb-addon-preorder-badge` reuses the same builder) — there is no separate info-icon element
+anymore.
+
+The `is_woocommerce()` scoping is load-bearing, not just an optimisation: the loop-image badge
+(`add_preorder_badge_to_loop_image()`, hooked on `woocommerce_product_get_image`) fires wherever
+`$product->get_image()` is called — including cart/mini-cart thumbnails and "recently viewed"
+widgets on unrelated pages — so without the page check it would emit an unstyled badge span outside
+shop/archive/single-product context. `.jwpo-preorder-image` / `.jwpo-preorder-image-badge` are a
+separate corner-tag style from `.jwpo-preorder-badge`'s tooltip pill, since one sits on top of a
+photo and the other sits next to text. The single-product gallery image badge
+(`add_preorder_badge_to_gallery_image()`, on `woocommerce_single_product_image_thumbnail_html`) adds
+its class onto WC's own `.woocommerce-product-gallery__image` div via string replace rather than a
+new wrapping element, because `single-product.js` selects that div as a *direct* child of
+`.woocommerce-product-gallery__wrapper` for the zoom/lightbox — introducing a wrapper would break it.
+
+## `[jwpo_preorder_badge]` shortcode
+
+`JWPO_Product::render_preorder_badge_shortcode()` is the one place the badge is emitted somewhere
+other than a plugin-owned hook — for dropping into arbitrary post/page content. `id` defaults to the
+current global `$product` (so bare `[jwpo_preorder_badge]` works on a single product template), and
+it renders nothing once `is_preorder_active()` goes false, so a page can carry it across a product's
+release date unattended.
+
+It defaults to the `jwpo-preorder-image-badge` class (the corner-tag look), but that class is
+`position: absolute` in `frontend.css` — styled to sit inside the `.jwpo-preorder-image` wrapper the
+image-overlay hooks above add around a thumbnail. Standalone in post content there's no such
+positioned ancestor, so the shortcode's default `style` attribute forces `position:static;
+display:inline-block;` back to normal inline flow; pass `style=""` to get the raw absolute-positioned
+tag if you're wrapping it yourself.
+
+`enqueue_frontend_assets()` additionally enqueues `frontend.css` on any singular post/page whose
+`post_content` contains the shortcode (`has_shortcode()`), on top of its existing
+shop/cart/checkout scoping. That only catches the shortcode as typed into the editor — a template
+calling `do_shortcode( '[jwpo_preorder_badge ...]' )` directly bypasses `post_content` entirely and
+must enqueue `jwpo-frontend` itself.
 
 `assets/css/admin.css` is enqueued **only on the plugin's own settings page**, not the product edit
 screen — any product-editor styling has to be inline or a new enqueue.

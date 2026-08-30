@@ -33,14 +33,21 @@ class JWPO_Product {
 		add_action( 'woocommerce_single_product_summary', array( __CLASS__, 'render_availability_notice' ), 11 );
 		add_filter( 'the_title', array( __CLASS__, 'maybe_append_preorder_badge_to_title' ), 10, 2 );
 		add_filter( 'woocommerce_cart_item_name', array( __CLASS__, 'render_cart_item_badge' ), 10, 3 );
+		add_filter( 'woocommerce_product_get_image', array( __CLASS__, 'add_preorder_badge_to_loop_image' ), 10, 2 );
+		add_filter( 'woocommerce_single_product_image_thumbnail_html', array( __CLASS__, 'add_preorder_badge_to_gallery_image' ), 10, 2 );
+		add_filter( 'render_block_woocommerce/product-image', array( __CLASS__, 'add_preorder_badge_to_product_image_block' ), 10, 3 );
 		add_action( 'wp_enqueue_scripts', array( __CLASS__, 'enqueue_frontend_assets' ) );
+		add_shortcode( 'jwpo_preorder_badge', array( __CLASS__, 'render_preorder_badge_shortcode' ) );
 	}
 
 	/**
 	 * @return void
 	 */
 	public static function enqueue_frontend_assets() {
-		if ( ! is_product() && ! is_cart() && ! is_checkout() ) {
+		$post = is_singular() ? get_post() : null;
+		$has_badge_shortcode = $post && has_shortcode( $post->post_content, 'jwpo_preorder_badge' );
+
+		if ( ! is_woocommerce() && ! is_cart() && ! is_checkout() && ! $has_badge_shortcode ) {
 			return;
 		}
 
@@ -65,16 +72,17 @@ class JWPO_Product {
 	 *
 	 * @param WC_Product|int $product
 	 * @param string         $class CSS class for the badge element.
+	 * @param string         $style Optional inline `style` attribute value.
 	 * @return string
 	 */
-	public static function get_badge_html( $product, $class = 'jwpo-preorder-badge' ) {
+	public static function get_badge_html( $product, $class = 'jwpo-preorder-badge', $style = '' ) {
 		$product = self::resolve_product( $product );
 
 		if ( ! $product ) {
 			return '';
 		}
 
-		return self::build_badge_html( self::get_availability_text( $product ), $class );
+		return self::build_badge_html( self::get_availability_text( $product ), $class, $style );
 	}
 
 	/**
@@ -84,12 +92,14 @@ class JWPO_Product {
 	 *
 	 * @param string $tooltip
 	 * @param string $class CSS class for the badge element.
+	 * @param string $style Optional inline `style` attribute value.
 	 * @return string
 	 */
-	public static function build_badge_html( $tooltip, $class = 'jwpo-preorder-badge' ) {
+	public static function build_badge_html( $tooltip, $class = 'jwpo-preorder-badge', $style = '' ) {
 		$title = '' !== $tooltip ? ' title="' . esc_attr( $tooltip ) . '"' : '';
+		$style = '' !== $style ? ' style="' . esc_attr( $style ) . '"' : '';
 
-		return '<span class="' . esc_attr( $class ) . '"' . $title . '>' . esc_html( self::get_badge_text() ) . '</span>';
+		return '<span class="' . esc_attr( $class ) . '"' . $title . $style . '>' . esc_html( self::get_badge_text() ) . '</span>';
 	}
 
 	/**
@@ -119,6 +129,55 @@ class JWPO_Product {
 		}
 
 		return $title . ' ' . self::get_badge_html( $post_id );
+	}
+
+	/**
+	 * [jwpo_preorder_badge] — standalone badge for dropping into arbitrary
+	 * post/page content, independent of the image/title/cart hooks above.
+	 * Renders nothing when the product isn't currently pre-order active
+	 * (see is_preorder_active()), so pages can leave the shortcode in place
+	 * across a product's release date without an admin removing it by hand.
+	 *
+	 * `id` defaults to the product of the current single product page (via
+	 * the global $product) when omitted, so `[jwpo_preorder_badge]` alone
+	 * works when embedded in a single product template/description; on a
+	 * plain post or page an explicit `id="123"` is required.
+	 *
+	 * Defaults to the `.jwpo-preorder-image-badge` corner-tag look rather
+	 * than the `.jwpo-preorder-badge` tooltip pill, per the visual style
+	 * requested for this shortcode — but that class is `position: absolute`
+	 * in frontend.css, styled to sit inside the `.jwpo-preorder-image`
+	 * wrapper added around a product thumbnail. Dropped standalone it would
+	 * position against whatever ancestor happens to be `position`ed, so the
+	 * default style pins it back to normal inline flow; pass `style=""` to
+	 * get the raw absolute-positioned tag for use inside your own wrapper.
+	 *
+	 * @param array $atts
+	 * @return string
+	 */
+	public static function render_preorder_badge_shortcode( $atts ) {
+		$atts = shortcode_atts(
+			array(
+				'id'    => 0,
+				'class' => 'jwpo-preorder-image-badge',
+				'style' => 'position:static;display:inline-block;',
+			),
+			$atts,
+			'jwpo_preorder_badge'
+		);
+
+		$product_id = (int) $atts['id'];
+
+		if ( ! $product_id ) {
+			global $product;
+			$product_id = $product instanceof WC_Product ? $product->get_id() : 0;
+		}
+
+		if ( ! $product_id || ! self::is_preorder_active( $product_id ) ) {
+			return '';
+		}
+
+		return self::get_badge_html( $product_id, sanitize_html_class( $atts['class'] ), $atts['style'] );
 	}
 
 	// -------------------------------------------------------------------------
@@ -473,5 +532,131 @@ class JWPO_Product {
 		}
 
 		return $name . ' ' . self::get_badge_html( $parent_id );
+	}
+
+	/**
+	 * Wraps a product's thumbnail image — shop loop, category/tag archives,
+	 * related/upsell/cross-sell grids, "recently viewed" widgets — with a
+	 * positioning class and an image-corner badge when that product (or, for
+	 * a variation, its parent, since pre-order meta only ever lives there) is
+	 * currently pre-order active.
+	 *
+	 * Hooked on `woocommerce_product_get_image`, which WC_Product::get_image()
+	 * applies wherever `$product->get_image()` is called — including cart/mini-
+	 * cart thumbnails, which already carry the name-based badge from
+	 * render_cart_item_badge(). Scoped to is_woocommerce() (shop, product
+	 * taxonomy archives, single product) so it doesn't add an unstyled badge
+	 * to cart/checkout thumbnails or to widgets rendered on unrelated pages —
+	 * frontend.css is only enqueued in that same set of contexts.
+	 *
+	 * @param string     $image
+	 * @param WC_Product $product
+	 * @return string
+	 */
+	public static function add_preorder_badge_to_loop_image( $image, $product ) {
+		if ( ! is_woocommerce() || ! $product instanceof WC_Product ) {
+			return $image;
+		}
+
+		$parent_id = $product->is_type( 'variation' ) ? $product->get_parent_id() : $product->get_id();
+
+		if ( ! self::is_preorder_active( $parent_id ) ) {
+			return $image;
+		}
+
+		// The wp-admin products list (edit.php?post_type=product) reuses the
+		// global $wp_query for its own listing query, which spuriously makes
+		// is_woocommerce() report true there too (WP_Query's is_post_type_archive
+		// flag is set from the query vars alone, admin or not) — so this badge
+		// renders on that screen's thumbnail column as well. frontend.css never
+		// loads there (wp_enqueue_scripts doesn't fire in wp-admin), so the
+		// absolute positioning that stacks the badge on the front end doesn't
+		// apply; force it onto its own line with an inline style instead of
+		// leaving it to sit beside the thumbnail unstyled.
+		$style = is_admin() ? 'display:block;' : '';
+
+		return '<span class="jwpo-preorder-image jwpo-preorder-image--loop">' . $image
+			. self::get_badge_html( $parent_id, 'jwpo-preorder-image-badge', $style ) . '</span>';
+	}
+
+	/**
+	 * Same treatment as add_preorder_badge_to_loop_image() for the single
+	 * product page's main gallery image, which core renders outside
+	 * get_image() (see templates/single-product/product-image.php) via its
+	 * own `woocommerce_single_product_image_thumbnail_html` filter, so it
+	 * needs a separate hook.
+	 *
+	 * The class is added onto WC's own `.woocommerce-product-gallery__image`
+	 * div in place, rather than adding a new wrapping element, because
+	 * single-product.js selects that div as a *direct* child of
+	 * `.woocommerce-product-gallery__wrapper` for the zoom/lightbox — an
+	 * extra wrapper would break that. If a future WC version changes this
+	 * markup and the string replace no longer matches, this silently no-ops
+	 * rather than emitting broken HTML.
+	 *
+	 * @param string $html
+	 * @param int    $attachment_id
+	 * @return string
+	 */
+	public static function add_preorder_badge_to_gallery_image( $html, $attachment_id ) {
+		global $product;
+
+		if ( ! $product instanceof WC_Product || ! self::is_preorder_active( $product ) ) {
+			return $html;
+		}
+
+		$html = preg_replace(
+			'/class="woocommerce-product-gallery__image/',
+			'class="jwpo-preorder-image woocommerce-product-gallery__image',
+			$html,
+			1
+		);
+
+		return str_replace( '</div>', self::get_badge_html( $product, 'jwpo-preorder-image-badge' ) . '</div>', $html );
+	}
+
+	/**
+	 * Badge for the Woo Blocks "Product Image" block (`woocommerce/product-image`)
+	 * — what a block-theme shop/archive/Product Collection actually renders,
+	 * as opposed to the classic `loop/thumbnail.php` template.
+	 *
+	 * `ProductImage::render_image()` only calls `$product->get_image()` (and
+	 * so only fires `woocommerce_product_get_image`, handled above) when the
+	 * product has a real featured image; for a product with none it returns
+	 * `wc_placeholder_img()` directly, bypassing that filter entirely. So
+	 * without this separate hook, a placeholder-thumbnail product never gets
+	 * a badge here even though the same product gets one in the classic loop.
+	 *
+	 * The block's own wrapper div already carries
+	 * `.wc-block-components-product-image` (`position: relative` in WC's
+	 * block CSS), so the badge just needs appending before that div's closing
+	 * tag — no extra positioning wrapper needed the way the classic loop
+	 * image (which has no such ancestor) requires one.
+	 *
+	 * The `jwpo-preorder-image-badge` string check guards against the product
+	 * *having* a real image: `render_image()` reaches `get_image()` in that
+	 * case, so `add_preorder_badge_to_loop_image()` already added one inside
+	 * $block_content and adding a second here would double it up.
+	 *
+	 * @param string   $block_content
+	 * @param array    $parsed_block
+	 * @param WP_Block $instance
+	 * @return string
+	 */
+	public static function add_preorder_badge_to_product_image_block( $block_content, $parsed_block, $instance ) {
+		$post_id = isset( $instance->context['postId'] ) ? $instance->context['postId'] : 0;
+		$product = $post_id ? wc_get_product( $post_id ) : null;
+
+		if ( ! is_woocommerce() || ! $product instanceof WC_Product || false !== strpos( $block_content, 'jwpo-preorder-image-badge' ) ) {
+			return $block_content;
+		}
+
+		$parent_id = $product->is_type( 'variation' ) ? $product->get_parent_id() : $product->get_id();
+
+		if ( ! self::is_preorder_active( $parent_id ) || '</div>' !== substr( $block_content, -6 ) ) {
+			return $block_content;
+		}
+
+		return substr( $block_content, 0, -6 ) . self::get_badge_html( $parent_id, 'jwpo-preorder-image-badge' ) . '</div>';
 	}
 }
