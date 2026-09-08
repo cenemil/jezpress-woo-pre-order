@@ -38,6 +38,45 @@ class JWPO_Product {
 		add_filter( 'render_block_woocommerce/product-image', array( __CLASS__, 'add_preorder_badge_to_product_image_block' ), 10, 3 );
 		add_action( 'wp_enqueue_scripts', array( __CLASS__, 'enqueue_frontend_assets' ) );
 		add_shortcode( 'jwpo_preorder_badge', array( __CLASS__, 'render_preorder_badge_shortcode' ) );
+
+		add_filter( 'body_class', array( __CLASS__, 'add_preorder_body_class' ) );
+		add_filter( 'post_class', array( __CLASS__, 'add_preorder_post_class' ), 10, 3 );
+	}
+
+	/**
+	 * Adds "product-pre-order" to the <body> class on a single product page
+	 * whose product is currently pre-order active.
+	 *
+	 * @param array $classes
+	 * @return array
+	 */
+	public static function add_preorder_body_class( $classes ) {
+		if ( is_product() ) {
+			$product = wc_get_product( get_queried_object_id() );
+
+			if ( $product && self::is_preorder_active( $product ) ) {
+				$classes[] = 'product-pre-order';
+			}
+		}
+
+		return $classes;
+	}
+
+	/**
+	 * Adds "product-pre-order" to a product's own post_class wherever it's
+	 * rendered (shop/archive loops, related/upsell blocks, single product).
+	 *
+	 * @param array $classes
+	 * @param array $class
+	 * @param int   $post_id
+	 * @return array
+	 */
+	public static function add_preorder_post_class( $classes, $class, $post_id ) {
+		if ( 'product' === get_post_type( $post_id ) && self::is_preorder_active( $post_id ) ) {
+			$classes[] = 'product-pre-order';
+		}
+
+		return $classes;
 	}
 
 	/**
