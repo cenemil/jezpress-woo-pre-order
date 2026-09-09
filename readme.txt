@@ -5,7 +5,7 @@ Requires at least: 5.8
 Tested up to: 6.7
 Requires PHP: 7.4
 WC requires at least: 6.0
-Stable tag: 1.8.0
+Stable tag: 1.9.0
 License: Proprietary
 
 Pre-order support for WooCommerce — hold orders until a product's release date, with bundle-aware status for Pack Builder boxes.
@@ -68,6 +68,11 @@ off-interval date before this rule existed keep their stored value and are exemp
 constraint, so their other product settings can still be saved.
 
 == Changelog ==
+
+= 1.9.0 =
+* Added a "cart-product-pre-order" CSS class to the `<body>` tag on the cart page whenever it contains at least one item that is currently pre-order active, mirroring the existing single-product "product-pre-order" body class
+* Both the single-product and cart body classes now also account for Pack Builder packs: a pack is flagged pre-order if any of its currently selected/available addon items is pre-order active, not only when the pack product itself is
+* Fixed the single-product body class not appearing for a custom Pack Builder pack whose addon pool is stored in postmeta (`_pack_addon_fields`) — it now reads the same `get_addon_items()` the pack itself uses, instead of the unused legacy DB addon table
 
 = 1.8.0 =
 * Added a "product-pre-order" CSS class to the `<body>` tag on a single product page, and to a product's own `post_class` wherever it's rendered (shop/archive loops, related/upsell blocks, single product), for themes/child-themes to hook custom styling off — applied whenever the product is currently pre-order active

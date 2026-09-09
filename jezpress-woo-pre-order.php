@@ -3,7 +3,7 @@
  * Plugin Name: JezPress Woo Pre-Order
  * Plugin URI:  https://jezpress.com.au
  * Description: Pre-order support for WooCommerce — hold orders until a product's release date, with bundle-aware status for Pack Builder boxes.
- * Version:     1.8.0
+ * Version:     1.9.0
  * Author:      Jezpress
  * Author URI:  https://jezpress.com.au
  * Text Domain: jezpress-woo-pre-order
@@ -17,7 +17,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-define( 'JWPO_VERSION', '1.8.0' );
+define( 'JWPO_VERSION', '1.9.0' );
 define( 'JWPO_DIR', plugin_dir_path( __FILE__ ) );
 define( 'JWPO_URL', plugin_dir_url( __FILE__ ) );
 

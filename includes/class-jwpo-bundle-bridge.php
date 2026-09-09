@@ -256,6 +256,50 @@ class JWPO_Bundle_Bridge {
 	}
 
 	/**
+	 * Whether a pack currently contains at least one pending (not-yet-released)
+	 * pre-order item — shared by the body-class hooks in JWPO_Product so a pack
+	 * whose own product isn't flagged pre-order still trips "product-pre-order"
+	 * / "cart-product-pre-order" when one of its contained addons is.
+	 *
+	 * $values is the cart item data when called for a cart row, or an empty
+	 * array on the single product page — resolve_pack_rows() falls back to the
+	 * pack's default JWPB_DB rows for a standard/seasonal pack in that case,
+	 * but returns nothing for a custom pack, since no addon *selections* exist
+	 * yet outside the cart. In that case we fall back to the product's own
+	 * get_addon_items() — the pool of selectable addons (postmeta-backed, per
+	 * WC_Product_Pack::get_addon_items()/get_addon_fields(); JWPB_DB's own
+	 * addon table is not the read path Pack Builder itself uses) — so a
+	 * pre-order addon flags the pack before a customer has picked anything.
+	 *
+	 * @param WC_Product_Pack $product
+	 * @param array           $values Cart item data, or empty outside the cart.
+	 * @return bool
+	 */
+	public static function has_pending_preorder_contents( $product, $values = array() ) {
+		if ( ! $product instanceof WC_Product_Pack ) {
+			return false;
+		}
+
+		$items = self::resolve_pack_rows( $values, $product );
+
+		if ( empty( $items ) && empty( $values ) && $product->is_custom() && method_exists( $product, 'get_addon_items' ) ) {
+			$items = array_map(
+				function ( $row ) {
+					$row['quantity'] = 1;
+					return $row;
+				},
+				$product->get_addon_items()
+			);
+		}
+
+		if ( empty( $items ) ) {
+			return false;
+		}
+
+		return null !== self::collect_pending_release( $items );
+	}
+
+	/**
 	 * Inspects a list of pack rows (shape: product_id, variation_id,
 	 * quantity — shared by JWPB_DB::get_pack_items() and JWPB_Cart's addon
 	 * selections) for pending pre-order items. Shared by order-time stamping

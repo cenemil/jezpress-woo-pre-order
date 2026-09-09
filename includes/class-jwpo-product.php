@@ -54,12 +54,51 @@ class JWPO_Product {
 		if ( is_product() ) {
 			$product = wc_get_product( get_queried_object_id() );
 
-			if ( $product && self::is_preorder_active( $product ) ) {
+			if ( $product && ( self::is_preorder_active( $product ) || JWPO_Bundle_Bridge::has_pending_preorder_contents( $product ) ) ) {
 				$classes[] = 'product-pre-order';
 			}
 		}
 
+		if ( is_cart() && self::cart_has_preorder_item() ) {
+			$classes[] = 'cart-product-pre-order';
+		}
+
 		return $classes;
+	}
+
+	/**
+	 * Whether the current cart contains at least one item that is currently
+	 * pre-order active — either a plain product/variation itself (checked
+	 * against the parent product, since pre-order meta only ever lives there —
+	 * see is_preorder_active()), or a Pack Builder pack containing at least
+	 * one pending pre-order addon (see JWPO_Bundle_Bridge).
+	 *
+	 * @return bool
+	 */
+	public static function cart_has_preorder_item() {
+		if ( ! WC()->cart ) {
+			return false;
+		}
+
+		foreach ( WC()->cart->get_cart() as $cart_item ) {
+			$product = isset( $cart_item['data'] ) ? $cart_item['data'] : null;
+
+			if ( ! $product instanceof WC_Product ) {
+				continue;
+			}
+
+			if ( JWPO_Bundle_Bridge::has_pending_preorder_contents( $product, $cart_item ) ) {
+				return true;
+			}
+
+			$parent_id = $product->is_type( 'variation' ) ? $product->get_parent_id() : $product->get_id();
+
+			if ( self::is_preorder_active( $parent_id ) ) {
+				return true;
+			}
+		}
+
+		return false;
 	}
 
 	/**
